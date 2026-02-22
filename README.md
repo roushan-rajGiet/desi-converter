@@ -4,8 +4,6 @@
 
 A production-ready SaaS platform for PDF manipulation, image compression, and AI-powered media conversion. Built with Next.js, NestJS, and Docker.
 
-A production-ready SaaS application for PDF manipulation and processing.
-
 ## Quick Start with Docker
 
 ### Prerequisites
