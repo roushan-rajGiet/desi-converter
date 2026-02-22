@@ -1,0 +1,242 @@
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: desi-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: desiconverter
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - desi-network
+
+  # ============================================
+  # Redis Queue Broker
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: desi-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - desi-network
+
+  # ============================================
+  # MinIO Object Storage (S3-compatible)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: desi-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - desi-network
+
+  # MinIO bucket initialization
+  minio-init:
+    image: minio/mc:latest
+    container_name: desi-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c " mc alias set myminio http://minio:9000 minioadmin minioadmin; mc mb myminio/uploads --ignore-existing; mc mb myminio/processed --ignore-existing; mc mb myminio/temp --ignore-existing; mc anonymous set download myminio/processed; echo 'Buckets created successfully'; exit 0; "
+    networks:
+      - desi-network
+
+  # ============================================
+  # API Service
+  # ============================================
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: desi-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/desiconverter
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET_UPLOADS: uploads
+      S3_BUCKET_PROCESSED: processed
+      S3_BUCKET_TEMP: temp
+      JWT_SECRET: desi-converter-jwt-secret-change-in-production
+      FRONTEND_URL: http://localhost:3000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./apps/api/src:/app/apps/api/src:ro
+      # Note: Do NOT mount ./packages as it overrides compiled dist
+    networks:
+      - desi-network
+
+  # ============================================
+  # PDF Worker Service - FAST
+  # (Rotate, Protect, Unlock, Sign)
+  # ============================================
+  worker-fast:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    container_name: desi-worker-fast
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      WORKER_TYPE: FAST
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/desiconverter
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./workers/pdf-processor/src:/app/workers/pdf-processor/src:ro
+    networks:
+      - desi-network
+
+  # ============================================
+  # PDF Worker Service - MEDIUM
+  # (Merge, Split, Watermark)
+  # ============================================
+  worker-medium:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    container_name: desi-worker-medium
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      WORKER_TYPE: MEDIUM
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/desiconverter
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./workers/pdf-processor/src:/app/workers/pdf-processor/src:ro
+    networks:
+      - desi-network
+
+  # ============================================
+  # PDF Worker Service - HEAVY
+  # (OCR, Compress, Conversions)
+  # ============================================
+  worker-heavy:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    container_name: desi-worker-heavy
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      WORKER_TYPE: HEAVY
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/desiconverter
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./workers/pdf-processor/src:/app/workers/pdf-processor/src:ro
+    networks:
+      - desi-network
+
+  # ============================================
+  # Frontend (Next.js)
+  # ============================================
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: desi-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      INTERNAL_API_URL: http://api:4000
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web/src:/app/apps/web/src:ro
+    networks:
+      - desi-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+
+
+networks:
+  desi-network:
+    driver: bridge

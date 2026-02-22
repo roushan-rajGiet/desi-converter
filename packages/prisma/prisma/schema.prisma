@@ -1,0 +1,148 @@
+// Prisma Schema for Desi Converter - Sprint 1
+// =============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// User & Authentication
+// =============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String?
+  plan          Plan      @default(FREE)
+  dailyUsage    Int       @default(0)
+  lastUsageDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  files         File[]
+  jobs          Job[]
+
+  @@map("users")
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
+// =============================================
+// File Storage
+// =============================================
+
+model File {
+  id            String      @id @default(cuid())
+  name          String      // Storage key filename
+  originalName  String      // Original upload name
+  size          Int         // Size in bytes
+  mimeType      String
+  bucket        String      // uploads | processed | temp
+  storageKey    String      // Full S3 key path
+  type          FileType    @default(INPUT)
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime?   // Auto-deletion time
+
+  // Ownership
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Job relations
+  jobFiles JobFile[]
+
+  @@index([userId])
+  @@index([storageKey])
+  @@index([expiresAt])
+  @@map("files")
+}
+
+enum FileType {
+  INPUT
+  OUTPUT
+  TEMP
+}
+
+// =============================================
+// Job Queue
+// =============================================
+
+model Job {
+  id            String      @id @default(cuid())
+  type          JobType
+  status        JobStatus   @default(UPLOADED)
+  progress      Int         @default(0)
+  error         String?
+  metadata      Json?       // Tool-specific settings
+  webhookUrl    String?     // Optional callback URL
+
+  createdAt     DateTime    @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  // Ownership
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // File relations
+  files         JobFile[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("jobs")
+}
+
+enum JobType {
+  MERGE
+  SPLIT
+  COMPRESS
+  ROTATE
+  REORDER
+  PDF_TO_WORD
+  WORD_TO_PDF
+  OCR
+  PDF_TO_IMAGE
+  PROTECT
+  UNLOCK
+  WATERMARK
+  SIGN
+}
+
+enum JobStatus {
+  UPLOADED      // Files received
+  PROCESSING    // Worker is processing
+  COMPLETED     // Success
+  FAILED        // Error
+}
+
+// =============================================
+// Job-File Many-to-Many
+// =============================================
+
+model JobFile {
+  id            String   @id @default(cuid())
+  jobId         String
+  fileId        String
+  isInput       Boolean  @default(true)
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, fileId])
+  @@index([jobId])
+  @@index([fileId])
+  @@map("job_files")
+}

@@ -1,0 +1,40 @@
+{
+  "name": "desi-converter",
+  "version": "0.0.1",
+  "private": true,
+  "description": "All-in-one document processing platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "workers/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev --workspace=@desi/web",
+    "dev:api": "npm run dev --workspace=@desi/api",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run generate --workspace=@desi/prisma",
+    "db:push": "npm run db:push --workspace=@desi/prisma",
+    "db:migrate": "npm run migrate:dev --workspace=@desi/prisma",
+    "docker:dev": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": [
+    "pdf",
+    "converter",
+    "document",
+    "saas"
+  ],
+  "author": "Desi Converter",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.13.5",
+    "form-data": "^4.0.5",
+    "pdf-lib": "^1.17.1"
+  }
+}

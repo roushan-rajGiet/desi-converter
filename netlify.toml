@@ -1,0 +1,14 @@
+[build]
+  command = "npm install && npm run build --workspace=@desi/web"
+  publish = "apps/web/out"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NETLIFY = "true"
+  NEXT_PUBLIC_API_URL = "http://localhost:4000"
+
+# SPA-style routing: serve index.html for all routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

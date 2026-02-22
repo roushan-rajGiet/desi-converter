@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Prisma
+packages/prisma/generated/
+
+# Uploaded files (local dev)
+uploads/
+temp/
+
+# Docker volumes
+.docker-data/
+
+# Local logs and test files
+api_logs.txt
+api_logs_v2.txt
+test-split.js
+test.pdf
+verification_script.js
+verification_script.ts

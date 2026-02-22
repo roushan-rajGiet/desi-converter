@@ -1,0 +1,42 @@
+redirectsOrigin = "config"
+plugins = []
+headers = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "C:\\Users\\rajro\\OneDrive\\Desktop\\Desi Converter\\apps\\web\\out"
+publishOrigin = "config"
+commandOrigin = "config"
+command = "npm install && npm run build --workspace=@desi/web"
+
+[build.environment]
+NODE_VERSION = "20"
+NETLIFY = "true"
+NEXT_PUBLIC_API_URL = "http://localhost:4000"
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200.0
+force = false
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]
